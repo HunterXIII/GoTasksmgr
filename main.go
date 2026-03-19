@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"tasksmgr/handler"
 	"tasksmgr/indexer"
+	"tasksmgr/middleware"
 	"tasksmgr/repo"
 	"time"
 
@@ -64,7 +65,7 @@ func main() {
 	go worker.Start(ctx)
 
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask())
-	mux.HandleFunc("GET /tasks", taskHandler.GetList())
+	mux.Handle("GET /tasks", middleware.TimeoutMiddleware((taskHandler.GetList())))
 	mux.HandleFunc("GET /tasks/{id}", taskHandler.GetById())
 	mux.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask()))
 	mux.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask()))

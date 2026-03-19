@@ -108,6 +108,7 @@ func (h *TaskHandler) GetById() http.HandlerFunc {
 
 func (h *TaskHandler) GetList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// time.Sleep(3 * time.Second)
 		tasks, err := h.repo.List(r.Context(), nil, nil)
 
 		if err != nil {
@@ -115,7 +116,6 @@ func (h *TaskHandler) GetList() http.HandlerFunc {
 			fmt.Printf("Error to get a list of tasks: %s\n", err)
 			return
 		}
-
 		res, _ := json.Marshal(tasks)
 		w.Write(res)
 	}
