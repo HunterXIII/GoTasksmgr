@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"tasksmgr/functions"
 	"tasksmgr/handler"
 	"tasksmgr/indexer"
 	"tasksmgr/middleware"
@@ -69,6 +70,10 @@ func main() {
 	mux.HandleFunc("GET /tasks/{id}", taskHandler.GetById())
 	mux.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask()))
 	mux.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask()))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	go functions.StepFunction(ctx)
 
 	// USERS
 	// users := make(map[int]User)
