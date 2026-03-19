@@ -9,11 +9,12 @@ import (
 )
 
 type TaskHandler struct {
-	repo *repo.TaskRepository
+	repo  *repo.TaskRepository
+	queue chan int
 }
 
-func NewTaskHandler(repo *repo.TaskRepository) *TaskHandler {
-	return &TaskHandler{repo: repo}
+func NewTaskHandler(repo *repo.TaskRepository, queue chan int) *TaskHandler {
+	return &TaskHandler{repo: repo, queue: queue}
 }
 
 func (h *TaskHandler) CreateTask() http.HandlerFunc {
@@ -28,8 +29,17 @@ func (h *TaskHandler) CreateTask() http.HandlerFunc {
 
 		ctx := r.Context()
 
-		err = h.repo.Create(ctx, task)
+		id, err := h.repo.Create(ctx, task)
 
+		select {
+		case h.queue <- id:
+		default:
+			h.repo.Delete(ctx, id)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			res, _ := json.Marshal("Index queue full")
+			w.Write(res)
+			return
+		}
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Printf("Failed to create a task: %s", err)
@@ -51,6 +61,15 @@ func (h *TaskHandler) GetById() http.HandlerFunc {
 			return
 		}
 
+		// task, err := h.repo.GetById(r.Context(), id)
+		// db_ch := make(chan *repo.Task)
+		// db_err_ch := make(chan error)
+
+		// select {
+		//	case
+		//	case
+		// }
+
 		task, err := h.repo.GetById(r.Context(), id)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
@@ -60,6 +79,28 @@ func (h *TaskHandler) GetById() http.HandlerFunc {
 			return
 		}
 
+		/*
+			something := make(chan string)
+			go func() {
+				fmt.Println("Start goroutine..")
+				time.Sleep(3 * time.Second)
+				something <- "something from goroutine"
+			}()
+
+			resJson := struct {
+				Id        int    `json:"id"`
+				Title     string `json:"title"`
+				Done      bool   `json:"done"`
+				UserID    int    `json:"user_id"`
+				Something string `json:"somethind"`
+			}{
+				Id:        task.Id,
+				Title:     task.Title,
+				Done:      task.Done,
+				UserID:    task.UserID,
+				Something: <-something,
+			}
+		*/
 		res, _ := json.Marshal(task)
 		w.Write(res)
 	}
@@ -118,7 +159,7 @@ func (h *TaskHandler) DeleteTask() http.HandlerFunc {
 
 		err = h.repo.Delete(r.Context(), id)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Printf("Failed to delete a task: %s", err)
 			res, _ := json.Marshal("Failed to delete a task")
 			w.Write(res)

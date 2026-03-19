@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,14 +15,17 @@ import (
 )
 
 type AuthHandler struct {
-	JWTSecret []byte
-	Users     *repo.UserRepository
+	JWTSecrets [][]byte
+	Users      *repo.UserRepository
 }
 
-func NewAuthHandler(users *repo.UserRepository, secret string) *AuthHandler {
+func NewAuthHandler(users *repo.UserRepository) *AuthHandler {
 	return &AuthHandler{
-		JWTSecret: []byte(secret),
-		Users:     users,
+		JWTSecrets: [][]byte{
+			[]byte("CURRENTSECRET"),
+			[]byte("OLDSECRET"),
+		},
+		Users: users,
 	}
 }
 
@@ -68,7 +70,7 @@ func (h *AuthHandler) Login() http.HandlerFunc {
 			"exp": time.Now().Add(3 * time.Minute).Unix(),
 		})
 
-		tokenString, err := token.SignedString(h.JWTSecret)
+		tokenString, err := token.SignedString(h.JWTSecrets[0])
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			res, _ := json.Marshal("Could not generate a token")
@@ -118,14 +120,24 @@ func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenString := parts[1]
-		token, err := parser.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		var token *jwt.Token
+		var err error
 
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("invalid signing method")
+		for _, secret := range h.JWTSecrets {
+
+			token, err = parser.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				return secret, nil
+			})
+
+			if err == nil && token.Valid {
+				break
 			}
+		}
 
-			return h.JWTSecret, nil
-		})
+		if err != nil || token == nil || !token.Valid {
+			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
 
 		if err != nil || !token.Valid {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -152,7 +164,7 @@ func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 
 		userID := int(sub.(float64)) // JWT числа приходят как float64
 
-		ctx := context.WithValue(r.Context(), "UserID", userID)
+		ctx := context.WithValue(r.Context(), "UserID", userID) // через константу или отдельный тип
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 
@@ -175,7 +187,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		"exp": time.Now().Add(3 * time.Minute).Unix(),
 	})
 
-	tokenString, err := token.SignedString(h.JWTSecret)
+	tokenString, err := token.SignedString(h.JWTSecrets[0])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		res, _ := json.Marshal("Could not generate a token")

@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"tasksmgr/handler"
+	"tasksmgr/indexer"
 	"tasksmgr/repo"
 	"time"
 
@@ -44,14 +49,19 @@ func main() {
 
 	// AUTH
 	usersRepo := repo.NewUserRepository()
-	authHandler := handler.NewAuthHandler(usersRepo, "SECRET")
+	authHandler := handler.NewAuthHandler(usersRepo)
 	mux.HandleFunc("POST /auth/login", authHandler.Login())
 	mux.Handle("GET /auth/whoami", authHandler.AuthMiddleware(http.HandlerFunc(authHandler.WhoAmI)))
 	mux.Handle("POST /auth/refresh", authHandler.AuthMiddleware(http.HandlerFunc(authHandler.Refresh)))
 
 	// TASKS
+	queue := make(chan int, 3)
 	taskRepo := repo.NewTaskRepository(db)
-	taskHandler := handler.NewTaskHandler(taskRepo)
+	taskHandler := handler.NewTaskHandler(taskRepo, queue)
+
+	worker := indexer.NewWorker(queue, taskRepo)
+	ctx := context.Background()
+	go worker.Start(ctx)
 
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask())
 	mux.HandleFunc("GET /tasks", taskHandler.GetList())
@@ -200,5 +210,15 @@ func main() {
 		ReadTimeout: 5 * time.Second,
 	}
 
-	srv.ListenAndServe()
+	go srv.ListenAndServe()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	<-stop
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	srv.Shutdown(shutdownCtx)
 }
