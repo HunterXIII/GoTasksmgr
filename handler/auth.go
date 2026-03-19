@@ -125,7 +125,7 @@ func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 
 		for _, secret := range h.JWTSecrets {
 
-			token, err = parser.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			token, err = parser.Parse(tokenString, func(token *jwt.Token) (any, error) {
 				return secret, nil
 			})
 
