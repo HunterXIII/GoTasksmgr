@@ -139,7 +139,7 @@ func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if err != nil || !token.Valid {
+		if !token.Valid {
 			w.WriteHeader(http.StatusUnauthorized)
 			res, _ := json.Marshal("Invalid Token")
 			w.Write(res)
