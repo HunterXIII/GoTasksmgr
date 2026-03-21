@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -74,6 +75,20 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	go functions.StepFunction(ctx)
+
+	mux.HandleFunc("GET /reports/slow", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Start slow endpoint")
+
+		select {
+		case <-time.After(5 * time.Second):
+			fmt.Println("Finish slow endpoint")
+			res, _ := json.Marshal("Finished")
+			w.Write(res)
+		case <-r.Context().Done():
+			fmt.Println("Cancel slow endpoint")
+			return
+		}
+	})
 
 	// USERS
 	// users := make(map[int]User)
