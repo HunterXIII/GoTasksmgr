@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,7 +18,10 @@ import (
 	"tasksmgr/repo"
 	"time"
 
+	pb "tasksmgr/gen"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"google.golang.org/grpc"
 )
 
 type User struct {
@@ -224,6 +229,15 @@ func main() {
 	// 	res, _ := json.Marshal(users[id])
 	// 	w.Write(res)
 	// })
+
+	lis, err := net.Listen("tcp", ":9091")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	srv_gRPC := grpc.NewServer()
+	pb.RegisterNotesServiceServer(srv_gRPC, &pb.UnimplementedNotesServiceServer{})
+	go srv_gRPC.Serve(lis)
 
 	srv := &http.Server{
 		Addr:        ":8080",
