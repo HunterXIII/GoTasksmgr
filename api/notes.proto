@@ -1,0 +1,30 @@
+syntax="proto3";
+
+option go_package = "tasksmgr/api;notesmgrv1";
+
+message Note {
+    int64 id = 1;
+    string title = 2;
+    int64 user_id = 3;
+}
+
+message CreateNoteRequest {
+    string title = 1;
+}
+
+message CreateNoteResponse {
+    int64 id = 1;
+}
+
+message GetNoteByIdRequest {
+    int64 id = 1;
+}
+
+message ListNoteRequest {}
+
+service NotesService {
+    rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
+    rpc GetNoteById(GetNoteByIdRequest) returns (Note);
+    rpc GetListNotes(ListNoteRequest) returns (stream Note);
+}
+
