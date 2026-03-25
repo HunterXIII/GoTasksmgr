@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	pb "tasksmgr/gen"
 
@@ -18,17 +19,40 @@ func main() {
 
 	client := pb.NewNotesServiceClient(conn)
 
-	resp, err := client.CreateNote(context.Background(), &pb.CreateNoteRequest{Title: "Тестовая заметка"})
+	_, err = client.CreateNote(context.Background(), &pb.CreateNoteRequest{Title: "Тестовая заметка"})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Create note with ID: %d", resp.Id)
+	_, err = client.CreateNote(context.Background(), &pb.CreateNoteRequest{Title: "Тестовая заметка №2"})
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	fmt.Println("Notes were created")
 
 	note, err := client.GetNoteById(context.Background(), &pb.GetNoteByIdRequest{Id: 1})
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
-	fmt.Printf("Get note with ID: %d", note.Id)
+	fmt.Printf("Get note: %d - %s\n", note.Id, note.Title)
+
+	stream, err := client.GetListNotes(context.Background(), &pb.ListNoteRequest{})
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	fmt.Println("START OF LIST")
+	for {
+		note, err := stream.Recv()
+		if err == io.EOF {
+			fmt.Println("END OF LIST")
+			break
+		}
+		fmt.Printf("%d - %s\n", note.Id, note.Title)
+	}
 
 }

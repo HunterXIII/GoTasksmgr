@@ -235,8 +235,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	notesRepo := repo.NewNotesRepository()
+	notesHandler := handler.NewNotesHandler(notesRepo)
 	srv_gRPC := grpc.NewServer()
-	pb.RegisterNotesServiceServer(srv_gRPC, &pb.UnimplementedNotesServiceServer{})
+	pb.RegisterNotesServiceServer(srv_gRPC, notesHandler)
 	go srv_gRPC.Serve(lis)
 
 	srv := &http.Server{
