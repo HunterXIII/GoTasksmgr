@@ -14,6 +14,7 @@ import (
 	"tasksmgr/functions"
 	"tasksmgr/handler"
 	"tasksmgr/indexer"
+	"tasksmgr/interceptor"
 	"tasksmgr/middleware"
 	"tasksmgr/repo"
 	"time"
@@ -29,13 +30,6 @@ type User struct {
 	Name string `json:"name"`
 	Age  int    `json:"age"`
 }
-
-// func validateLenOfName(name string) bool {
-// 	if len([]rune(name)) < 3 {
-// 		return false
-// 	}
-// 	return true
-// }
 
 func main() {
 
@@ -95,141 +89,6 @@ func main() {
 		}
 	})
 
-	// USERS
-	// users := make(map[int]User)
-	// users[1] = User{Id: 1, Name: "Roman", Age: 19}
-	// nextId := 2
-
-	// mux.HandleFunc("POST /users", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	var newUser User
-
-	// 	json.NewDecoder(r.Body).Decode(&newUser)
-
-	// 	if !validateLenOfName(newUser.Name) {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		res, _ := json.Marshal("Len of name must be more than 2 symbols")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-
-	// 	users[nextId] = User{Id: nextId, Name: newUser.Name, Age: newUser.Age}
-	// 	res, _ := json.Marshal(users[nextId])
-	// 	nextId++
-	// 	w.WriteHeader(http.StatusCreated)
-	// 	w.Write(res)
-	// })
-
-	// mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	idStr := r.PathValue("id")
-	// 	id, err := strconv.Atoi(idStr)
-	// 	if err != nil {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		res, _ := json.Marshal("Uncorrect Id")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-
-	// 	user, ok := users[id]
-	// 	if !ok {
-	// 		w.WriteHeader(http.StatusNotFound)
-	// 		res, _ := json.Marshal("User is not found")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-	// 	res, _ := json.Marshal(user)
-	// 	w.Write(res)
-	// })
-
-	// mux.HandleFunc("GET /users", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	userList := []User{}
-	// 	for _, user := range users {
-	// 		userList = append(userList, user)
-	// 	}
-	// 	res, _ := json.Marshal(userList)
-	// 	w.Write(res)
-	// })
-
-	// mux.HandleFunc("PUT /users/{id}", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	idStr := r.PathValue("id")
-	// 	id, err := strconv.Atoi(idStr)
-
-	// 	if err != nil {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		res, _ := json.Marshal("Uncorrect Id")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-
-	// 	_, ok := users[id]
-	// 	if !ok {
-	// 		w.WriteHeader(http.StatusNotFound)
-	// 		res, _ := json.Marshal("User is not found")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-
-	// 	var updateUser User
-	// 	json.NewDecoder(r.Body).Decode(&updateUser)
-	// 	updateUser.Id = id
-	// 	if !validateLenOfName(updateUser.Name) {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		res, _ := json.Marshal("Len of name must be more than 2 symbols")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-	// 	users[id] = updateUser
-	// 	res, _ := json.Marshal(users[id])
-	// 	w.Write(res)
-
-	// })
-
-	// mux.HandleFunc("PATCH /users/{id}", func(w http.ResponseWriter, r *http.Request) {
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	idStr := r.PathValue("id")
-	// 	id, err := strconv.Atoi(idStr)
-
-	// 	if err != nil {
-	// 		w.WriteHeader(http.StatusBadRequest)
-	// 		res, _ := json.Marshal("Uncorrect Id")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-
-	// 	_, ok := users[id]
-	// 	if !ok {
-	// 		w.WriteHeader(http.StatusNotFound)
-	// 		res, _ := json.Marshal("User is not found")
-	// 		w.Write(res)
-	// 		return
-	// 	}
-
-	// 	var updateUser User
-	// 	json.NewDecoder(r.Body).Decode(&updateUser)
-	// 	updateUser.Id = id
-	// 	user := users[id]
-	// 	if updateUser.Name != "" {
-	// 		if !validateLenOfName(updateUser.Name) {
-	// 			w.WriteHeader(http.StatusBadRequest)
-	// 			res, _ := json.Marshal("Len of name must be more than 2 symbols")
-	// 			w.Write(res)
-	// 			return
-	// 		}
-	// 		user.Name = updateUser.Name
-	// 	}
-
-	// 	if updateUser.Age > 0 {
-	// 		user.Age = updateUser.Age
-	// 	}
-
-	// 	users[id] = user
-	// 	res, _ := json.Marshal(users[id])
-	// 	w.Write(res)
-	// })
-
 	lis, err := net.Listen("tcp", ":9091")
 	if err != nil {
 		log.Fatal(err)
@@ -237,7 +96,8 @@ func main() {
 
 	notesRepo := repo.NewNotesRepository()
 	notesHandler := handler.NewNotesHandler(notesRepo)
-	srv_gRPC := grpc.NewServer()
+
+	srv_gRPC := grpc.NewServer(grpc.UnaryInterceptor(interceptor.RequestIDInterceptor))
 	pb.RegisterNotesServiceServer(srv_gRPC, notesHandler)
 	go srv_gRPC.Serve(lis)
 
