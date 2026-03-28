@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"tasksmgr/contextx"
+	"tasksmgr/repo"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	"tasksmgr/repo" // замените на ваш путь к repo
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type AuthHandler struct {
@@ -198,4 +203,65 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	res, _ := json.Marshal(loginResponse{Token: tokenString})
 	w.Write(res)
+}
+
+func (h *AuthHandler) JWTAuthInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (
+	any,
+	error,
+) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	authHeader := strings.Join(md.Get("authorization"), "")
+	// fmt.Println(authHeader)
+	if authHeader == "" {
+		return nil, status.Error(codes.Unauthenticated, "No authorization")
+	}
+
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return nil, status.Error(codes.Unauthenticated, "Not bearer authorization")
+	}
+
+	parser := jwt.NewParser(
+		jwt.WithLeeway(120*time.Second),
+		jwt.WithValidMethods([]string{"HS256"}),
+	)
+
+	tokenString := parts[1]
+	var token *jwt.Token
+	var err error
+
+	for _, secret := range h.JWTSecrets {
+
+		token, err = parser.Parse(tokenString, func(token *jwt.Token) (any, error) {
+			return secret, nil
+		})
+
+		if err == nil && token.Valid {
+			break
+		}
+	}
+
+	if err != nil || token == nil || !token.Valid {
+		return nil, status.Error(codes.Unauthenticated, "Token is invalid")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "Token is invalid")
+	}
+
+	sub, ok := claims["sub"]
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "Token is invalid")
+	}
+
+	userID := int(sub.(float64))
+
+	ctx = context.WithValue(ctx, contextx.UserIDKey{}, userID)
+	return handler(ctx, req)
 }

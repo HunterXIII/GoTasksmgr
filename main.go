@@ -33,7 +33,7 @@ type User struct {
 
 func main() {
 
-	db, err := sql.Open("pgx", "postgres://postgres:postgres@localhost:5433/go")
+	db, err := sql.Open("pgx", "postgres://postgres:postgres@localhost:5435/mydb")
 	if err != nil {
 		fmt.Printf("Failed to connect: %s\n", err)
 		return
@@ -97,7 +97,12 @@ func main() {
 	notesRepo := repo.NewNotesRepository()
 	notesHandler := handler.NewNotesHandler(notesRepo)
 
-	srv_gRPC := grpc.NewServer(grpc.UnaryInterceptor(interceptor.RequestIDInterceptor))
+	srv_gRPC := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			interceptor.RequestIDInterceptor,
+			authHandler.JWTAuthInterceptor,
+		),
+	)
 	pb.RegisterNotesServiceServer(srv_gRPC, notesHandler)
 	go srv_gRPC.Serve(lis)
 

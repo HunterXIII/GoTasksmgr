@@ -4,6 +4,7 @@ import (
 	"context"
 	notesmgrv1 "tasksmgr/gen"
 	"tasksmgr/repo"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -51,6 +52,7 @@ func (h *NotesHandler) GetListNotes(r *notesmgrv1.ListNoteRequest, stream grpc.S
 		if err := stream.Send(&notesmgrv1.Note{Id: int64(note.Id), Title: note.Title, UserId: int64(note.UserID)}); err != nil {
 			return err
 		}
+		time.Sleep(3 * time.Second)
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"tasksmgr/contextx"
 )
 
 type Note struct {
@@ -24,7 +25,7 @@ func NewNotesRepository() *NotesRepository {
 }
 
 func (r *NotesRepository) CreateNote(ctx context.Context, title string) (int, error) {
-	r.notes[r.nextID] = Note{Id: r.nextID, Title: title}
+	r.notes[r.nextID] = Note{Id: r.nextID, Title: title, UserID: ctx.Value(contextx.UserIDKey{}).(int)}
 	r.nextID++
 	return r.nextID - 1, nil
 }

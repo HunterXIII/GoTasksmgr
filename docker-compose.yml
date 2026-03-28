@@ -7,10 +7,11 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mydb
     ports:
-      - "5434:5432"
+      - "5435:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_go:/var/lib/postgresql/data
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  postgres_data_go:
+    name: postgres_data_go_unique
