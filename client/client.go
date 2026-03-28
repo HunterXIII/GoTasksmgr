@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	pb "tasksmgr/gen"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -87,7 +88,9 @@ func main() {
 	}
 	fmt.Printf("Get note: %d - %s\n", note.Id, note.Title)
 
-	stream, err := client.GetListNotes(ctx, &pb.ListNoteRequest{})
+	ctxtimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	stream, err := client.GetListNotes(ctxtimeout, &pb.ListNoteRequest{})
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -95,12 +98,21 @@ func main() {
 
 	fmt.Println("START OF LIST")
 	for {
+		if stream == nil {
+			fmt.Println("stream is stopped")
+			break
+		}
 		note, err := stream.Recv()
 		if err == io.EOF {
 			fmt.Println("END OF LIST")
 			break
 		}
+		if err != nil {
+			fmt.Printf("Error: %s\n", err)
+			break
+		}
 		fmt.Printf("%d - %s (User: %d)\n", note.Id, note.Title, note.UserId)
 	}
+	fmt.Println("END OF CONTEXT FOR LIST")
 
 }

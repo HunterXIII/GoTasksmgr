@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	notesmgrv1 "tasksmgr/gen"
 	"tasksmgr/repo"
 	"time"
@@ -23,6 +24,7 @@ func NewNotesHandler(r *repo.NotesRepository) *NotesHandler {
 func (h *NotesHandler) CreateNote(ctx context.Context, note *notesmgrv1.CreateNoteRequest) (*notesmgrv1.CreateNoteResponse, error) {
 	id, err := h.repo.CreateNote(ctx, note.Title)
 	if err != nil {
+		fmt.Printf("Note didn't create: %s\n", err)
 		return nil, status.Error(codes.Internal, "Note didn't create")
 	}
 
@@ -32,6 +34,7 @@ func (h *NotesHandler) CreateNote(ctx context.Context, note *notesmgrv1.CreateNo
 func (h *NotesHandler) GetNoteById(ctx context.Context, getNote *notesmgrv1.GetNoteByIdRequest) (*notesmgrv1.Note, error) {
 	note, err := h.repo.GetNoteById(ctx, int(getNote.Id))
 	if err != nil {
+		fmt.Printf("Note not found: %s\n", err)
 		return nil, status.Error(codes.NotFound, "Note not found")
 	}
 
@@ -45,6 +48,7 @@ func (h *NotesHandler) GetNoteById(ctx context.Context, getNote *notesmgrv1.GetN
 func (h *NotesHandler) GetListNotes(r *notesmgrv1.ListNoteRequest, stream grpc.ServerStreamingServer[notesmgrv1.Note]) error {
 	notes, err := h.repo.GetNotes(context.Background())
 	if err != nil {
+		fmt.Printf("Note didn't get: %s\n", err)
 		return status.Error(codes.Internal, "Notes didn't get")
 	}
 
@@ -52,7 +56,7 @@ func (h *NotesHandler) GetListNotes(r *notesmgrv1.ListNoteRequest, stream grpc.S
 		if err := stream.Send(&notesmgrv1.Note{Id: int64(note.Id), Title: note.Title, UserId: int64(note.UserID)}); err != nil {
 			return err
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	return nil
 }

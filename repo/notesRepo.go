@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"tasksmgr/contextx"
 )
@@ -13,36 +14,61 @@ type Note struct {
 }
 
 type NotesRepository struct {
-	notes  map[int]Note
-	nextID int
+	db *sql.DB
 }
 
-func NewNotesRepository() *NotesRepository {
+func NewNotesRepository(db *sql.DB) *NotesRepository {
 	return &NotesRepository{
-		notes:  make(map[int]Note),
-		nextID: 1,
+		db: db,
 	}
 }
 
 func (r *NotesRepository) CreateNote(ctx context.Context, title string) (int, error) {
-	r.notes[r.nextID] = Note{Id: r.nextID, Title: title, UserID: ctx.Value(contextx.UserIDKey{}).(int)}
-	r.nextID++
-	return r.nextID - 1, nil
+	tx, err := r.db.BeginTx(ctx, nil)
+	defer tx.Rollback()
+	var id int
+	err = tx.QueryRowContext(ctx, "INSERT INTO notes (title, user_id) VALUES ($1, $2) RETURNING id", title, ctx.Value(contextx.UserIDKey{}).(int)).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	tx.Commit()
+	return id, nil
 }
 
 func (r *NotesRepository) GetNoteById(ctx context.Context, id int) (*Note, error) {
-	note, ok := r.notes[id]
-	if !ok {
-		return nil, fmt.Errorf("note with id=%d not found", id)
+	tx, err := r.db.BeginTx(ctx, nil)
+	defer tx.Rollback()
+	var note Note
+	err = tx.QueryRowContext(ctx, "SELECT id, title, user_id FROM notes WHERE id = $1", id).Scan(&note.Id, &note.Title, &note.UserID)
+	if err != nil {
+		return nil, err
 	}
-
+	tx.Commit()
 	return &note, nil
 }
 
 func (r *NotesRepository) GetNotes(ctx context.Context) ([]Note, error) {
-	result := []Note{}
-	for _, note := range r.notes {
-		result = append(result, note)
+	tx, err := r.db.BeginTx(ctx, nil)
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, "SELECT id, title, user_id FROM notes")
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
-	return result, nil
+	defer rows.Close()
+
+	notes := []Note{}
+
+	for rows.Next() {
+		var note Note
+		if err := rows.Scan(&note.Id, &note.Title, &note.UserID); err != nil {
+			return nil, err
+		}
+		notes = append(notes, note)
+	}
+
+	tx.Commit()
+	return notes, nil
+
 }

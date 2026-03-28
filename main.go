@@ -94,7 +94,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	notesRepo := repo.NewNotesRepository()
+	notesRepo := repo.NewNotesRepository(db)
 	notesHandler := handler.NewNotesHandler(notesRepo)
 
 	srv_gRPC := grpc.NewServer(
